@@ -1,0 +1,183 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import datetime
+import sys
+import dpkt
+import logging
+import socket
+import json
+from dpkt.ip import IP_PROTO_TCP
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+# set current level of loggin #
+logger.setLevel(logging.INFO)
+
+
+class Packet:
+    timestamp = None
+    host = None
+    window = None
+
+
+class Streamer:
+    CLIENT = "client"
+    SERVER = "server"
+
+    type = None
+    ip_addr = None
+    ip_byte = None
+    window = {
+        'data': [],
+        'time': []
+    }
+
+    def __init__(self, type, ip_bytes):
+        self.type = type
+        self.ip_addr = socket.inet_ntoa(ip_bytes)
+        self.ip_byte = ip_bytes
+
+
+class ParserException(Exception):
+    pass
+
+
+class PacketTypeException(ParserException):
+    pass
+
+
+class PcapParser:
+    packets = None
+    client = None
+    server = None
+
+    def __init__(self, filename):
+        f = file(filename)
+        self.packets = self.filter_tcp(dpkt.pcap.Reader(f))
+
+        if len(self.packets) > 1:
+            packet_ip = self.packets[0][2]
+            self.client = Streamer(Streamer.CLIENT, packet_ip.src)
+            self.server = Streamer(Streamer.SERVER, packet_ip.dst)
+        else:
+            logger.error("No input packets")
+
+    @staticmethod
+    def get_tcp_packet(buf):
+        """
+        Checks if packet is IP && TCP type
+        :param buf:
+        :return:
+        """
+        eth = dpkt.ethernet.Ethernet(buf)
+        if eth.type != dpkt.ethernet.ETH_TYPE_IP:
+            raise PacketTypeException("Skipping not IP packet")
+        ip = eth.data
+        if ip.p != IP_PROTO_TCP:
+            raise PacketTypeException("Skipping UDP data")
+
+        tcp = ip.data
+        return tcp, ip, eth
+
+    @staticmethod
+    def get_time(timestamp):
+        return str(datetime.datetime.utcfromtimestamp(timestamp))
+
+    @staticmethod
+    def filter_tcp(pcap):
+        """
+        Filters input PCAP so that there are only TCP packets
+        :param pcap:
+        :return: returns list of (timestamp, tcp data)
+        """
+        packets = []
+        for timestamp, buf in pcap:
+            try:
+                tcp, ip, eth = PcapParser.get_tcp_packet(buf)
+                p = (timestamp, tcp, ip, eth)
+                packets.append(p)
+            except PacketTypeException as e:
+                logger.debug(e.message)
+                continue
+        return packets
+
+    def parse_rtt(self):
+        ts_start = ts_back = ts_end = 0
+        for timestamp, tcp, ip, eth in self.packets:
+            syn_flag = (tcp.flags & dpkt.tcp.TH_SYN) != 0
+            ack_flag = (tcp.flags & dpkt.tcp.TH_ACK) != 0
+
+            # from server (2nd way)
+            if syn_flag and ack_flag:
+                ts_back = timestamp
+            # from client (1nd way)
+            elif syn_flag:
+                ts_start = timestamp
+            # from server (3nd way)
+            elif ack_flag:
+                ts_end = timestamp
+
+            if ts_start and ts_back and ts_end: break
+        rtt = ts_back + ts_end - 2 * ts_start
+        return rtt
+
+    def get_streamer_by_ip(self, ip):
+        if ip == self.client.ip_byte:
+            return self.client
+        elif ip == self.server.ip_byte:
+            return self.server
+        else:
+            raise ParserException("Unknown IP Address")
+
+    def parse_all(self):
+        for timestamp, tcp, ip, eth in self.packets:
+            streamer = self.get_streamer_by_ip(ip.src)
+            if streamer.type == Streamer.SERVER:
+                window = self.server.window['data']
+            else:
+                window = self.client.window['data']
+
+            # if len(window) > 0:
+            #     last_data = window.pop()
+            #     window.append(last_data)
+            # else:
+            #     last_data = None
+            #
+            # if last_data != tcp.win:
+            window.append(tcp.win)
+
+    def parse(self):
+        for timestamp, tcp, ip, eth in self.packets:
+            print timestamp
+        pass
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print "You need to specify input pcap file!"
+
+    try:
+        parser = PcapParser(sys.argv[1])
+        parser.parse()
+        # parser.parse_all()
+        # rtt = parser.parse_rtt()
+        # print rtt
+
+        # pres = presenter.Presenter()
+        # pres.generate()
+        # output = {
+        #     'summary': {
+        #       'packets_count': len(parser.packets)
+        #     },
+        #     'server': {
+        #         'window': parser.server.window
+        #     },
+        #     'client': {
+        #         'window': parser.client.window
+        #     }
+        # }
+
+        # print json.dumps(output)
+
+    except IOError as e:
+        print e.strerror
