@@ -6,6 +6,7 @@ import dpkt
 import logging
 import socket
 import json
+from json import JSONEncoder
 from dpkt.ip import IP_PROTO_TCP
 
 logging.basicConfig(level=logging.DEBUG)
@@ -14,10 +15,18 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class Packet:
+class Packet(JSONEncoder):
     timestamp = None
     host = None
     window = None
+
+    def default(self, o):
+        return o.__dict__
+
+    def __init__(self, timestamp, ip_bytes):
+        super(Packet, self).__init__()
+        self.timestamp = timestamp
+        self.host = socket.inet_ntoa(ip_bytes)
 
 
 class Streamer:
@@ -50,6 +59,15 @@ class PcapParser:
     packets = None
     client = None
     server = None
+    output = []
+
+    srv = {
+        'windows': []
+    }
+
+    cli = {
+        'windows': []
+    }
 
     def __init__(self, filename):
         f = file(filename)
@@ -137,18 +155,42 @@ class PcapParser:
             else:
                 window = self.client.window['data']
 
-            # if len(window) > 0:
-            #     last_data = window.pop()
-            #     window.append(last_data)
-            # else:
-            #     last_data = None
-            #
-            # if last_data != tcp.win:
             window.append(tcp.win)
 
     def parse(self):
+        ref_timestamp = None
+
         for timestamp, tcp, ip, eth in self.packets:
-            print timestamp
+            if socket.inet_ntoa(ip.src) != '128.119.245.12':
+                continue
+            # streamer = self.get_streamer_by_ip(ip.src)
+            # if streamer == Streamer.SERVER:
+            if len(self.srv['windows']) == 0 or self.srv['windows'][-1][1] != tcp.win:
+                self.srv['windows'].append([timestamp, tcp.win])
+
+
+            print self.srv['windows'][-1]
+            # elif streamer == Streamer.CLIENT:
+            #     pass
+
+
+                # if ref_timestamp is None:
+                #     ref_timestamp = 0
+                #
+                # streamer = self.get_streamer_by_ip(ip.src)
+                # # if streamer.type == Streamer.CLIENT:
+                # #     self.client_windows.append([timestamp - ref_timestamp, tcp.win])
+                # # else:
+                #
+                # if index == 0 or (index > 0 and self.server_windows[-1][1] != tcp.win):
+                #     if streamer.type == Streamer.SERVER:
+                #         self.server_windows.append([timestamp - ref_timestamp, tcp.win])
+                #
+                # # if streamer.type == 'server':
+                # #     print streamer.type, self.get_time(timestamp), tcp.win
+                #
+                #
+                #
         pass
 
 
@@ -159,25 +201,13 @@ if __name__ == "__main__":
     try:
         parser = PcapParser(sys.argv[1])
         parser.parse()
-        # parser.parse_all()
-        # rtt = parser.parse_rtt()
-        # print rtt
 
-        # pres = presenter.Presenter()
-        # pres.generate()
-        # output = {
-        #     'summary': {
-        #       'packets_count': len(parser.packets)
-        #     },
-        #     'server': {
-        #         'window': parser.server.window
-        #     },
-        #     'client': {
-        #         'window': parser.client.window
-        #     }
-        # }
+        output = {
+            'server': parser.srv
+        }
 
-        # print json.dumps(output)
+        with open("./presenter/log.json", 'w') as outfile:
+            json.dump(output, outfile)
 
     except IOError as e:
         print e.strerror
