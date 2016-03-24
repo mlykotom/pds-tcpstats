@@ -19,6 +19,7 @@ var options = {
                 [1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
             ]
         ],
+
         dateTimeLabelFormats: {
             millisecond: '%S.%L',
             second: '%H:%M:%S',
@@ -57,11 +58,11 @@ $.getJSON('./log/log.json', function (json) {
     options.series = [
         {
             name: 'sender window',
-            data: json.windows.client.data
+            data: json.client.windows
         },
         {
             name: 'receiver window',
-            data: json.windows.server.data
+            data: json.server.windows
         }
     ];
 
@@ -72,17 +73,26 @@ $.getJSON('./log/log.json', function (json) {
         {
             name: 'server->client',
             data: json.server.speed
+        },
+        {
+            name: 'client->server',
+            data: json.client.speed
         }
     ];
 
     $('#graph_speed').highcharts(speed_options);
 
 
-
     var rtt_options = jQuery.extend(true, {}, options);
+
+    rtt_options.tooltip = {
+        valueSuffix: ' ms',
+        valueDecimals: 6 // TODO pryc
+    };
+
     var srv_cli = [];
     var srv_cli_data = [];
-    $.each(json.roundtrip.server_client, function () {
+    $.each(json.server.roundtrip, function () {
         if (this.replied == 0) return;
 
         srv_cli.push(this.seq);
@@ -91,6 +101,15 @@ $.getJSON('./log/log.json', function (json) {
 
     rtt_options.xAxis = {
         categories: srv_cli
+    };
+
+    rtt_options.yAxis = {
+        title: {
+            text: 'Roundtrip time [ms]'
+        },
+        labels: {
+            format: '{value:.2f}'
+        }
     };
 
     rtt_options.series = [
@@ -105,7 +124,7 @@ $.getJSON('./log/log.json', function (json) {
     var rtt2_options = jQuery.extend(true, {}, rtt_options);
     var cli_srv = [];
     var cli_srv_data = [];
-    $.each(json.roundtrip.client_server, function () {
+    $.each(json.client.roundtrip, function () {
         if (this.replied == 0) return;
 
         cli_srv.push(this.seq);
@@ -123,6 +142,17 @@ $.getJSON('./log/log.json', function (json) {
         }
     ];
 
-
     $('#graph_rtt2').highcharts(rtt2_options);
+
+
+    var seq_options = jQuery.extend(true, {}, options);
+    seq_options.series = [
+        {
+            name: 'server->client',
+            data: json.server.speed
+        }
+    ];
+
+
+    $('#graph_seq').highcharts(seq_options);
 });
