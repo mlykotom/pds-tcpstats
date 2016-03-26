@@ -1,13 +1,9 @@
 /**
- * @author Tomas Mlynaric
+ * @author Tomas Mlynaric | xmlyna06@stud.fit.vutbr.cz
+ * @since 26.3.2016
  */
 
-function numberShortener(input, decimals) {
-    return parseFloat(input).toFixed(decimals || 2);
-}
-
 var logFile = './log/log.json';
-
 var charts_options = {
     global: {
         useUTC: false
@@ -22,32 +18,26 @@ var charts_options = {
         align: 'right',
         verticalAlign: 'top',
         borderWidth: 0
-    },
-
-    xAxis: {
-        type: 'datetime',
-        units: [
-            [
-                'millisecond',
-                [1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
-            ]
-        ],
-
-        dateTimeLabelFormats: {
-            millisecond: '%S.%L',
-            second: '%H:%M:%S',
-            minute: '%H:%M',
-            hour: '',
-            day: '',
-            week: '',
-            month: '',
-            year: ''
-        }
     }
 };
 
-$.getJSON(logFile, function (json) {
+/**
+ * Shortens number by specified amount of decimals
+ * @param input number
+ * @param decimals number of decimals (default is 2)
+ * @returns {string}
+ */
+function numberShortener(input, decimals) {
+    return parseFloat(input).toFixed(decimals || 2);
+}
+
+/**
+ * Setups summary information.
+ * @param json with needed data
+ */
+function log_summary(json) {
     $('#log_filename').html(logFile);
+    $('#input_filename').html(json.summary.input_filename);
     $('#packets_number').html(json.summary.packets_count);
     $('#initial_rtt').html(numberShortener(json.summary.initial_rtt) + ' ms');
     // data sent
@@ -59,131 +49,176 @@ $.getJSON(logFile, function (json) {
     // window scaling factor
     $('#cli_win_scale').html(json.client.windows_scale + ' (' + Math.pow(2, json.client.windows_scale) + ')');
     $('#srv_win_scale').html(json.server.windows_scale + ' (' + Math.pow(2, json.server.windows_scale) + ')');
+}
 
+$.getJSON(logFile, function (json) {
+    // --------- Summary
+    log_summary(json);
 
-    var window_options = jQuery.extend(true, {}, charts_options);
-
-    window_options.tooltip = {
-        valueSuffix: ' B'
-    };
-
-    window_options.series = [
-        {
-            name: 'sender window',
-            data: json.client.windows
+    // --------- Windows
+    var window_options = jQuery.extend(true, {}, charts_options, {
+        chart: {
+            type: 'line'
         },
-        {
-            name: 'receiver window',
-            data: json.server.windows
-        }
-    ];
-
-    window_options.xAxis = {
-        title: {
-            text: 'Time [ms]'
-        }
-    };
-    window_options.yAxis = {
-        title: {
-            text: 'Window Size [B]'
-        }
-    };
-
+        tooltip: {
+            formatter: function () {
+                return 'Time: ' + numberShortener(this.x) + ' ms <br />Window: <strong>' + this.y + ' B</strong>';
+            }
+        },
+        xAxis: {
+            title: {
+                text: 'Time [ms]'
+            }
+        },
+        yAxis: {
+            title: {
+                text: 'Window Size [B]'
+            }
+        },
+        series: [
+            {
+                name: 'Sender',
+                data: json.client.windows,
+                lineWidth: 0,
+                marker: {
+                    enabled: true,
+                    radius: 2
+                }
+            },
+            {
+                name: 'Receiver',
+                data: json.server.windows,
+                lineWidth: 0,
+                marker: {
+                    enabled: true,
+                    radius: 2
+                }
+            }
+        ]
+    });
     $('#graph_windows').highcharts(window_options);
 
-    var speed_options = jQuery.extend(true, {}, charts_options);
-    speed_options.series = [
-        {
-            name: 'server->client',
-            data: json.server.speed
+    // --------- Transfer speed
+    var speed_options = jQuery.extend(true, {}, charts_options, {
+        chart: {
+            type: 'areaspline'
         },
-        {
-            name: 'client->server',
-            data: json.client.speed
-        }
-    ];
-
+        xAxis: {
+            title: {
+                text: 'Time [ms]'
+            }
+        },
+        yAxis: {
+            title: {
+                text: 'Average speed [B/s]'
+            }
+        },
+        tooltip: {
+            formatter: function () {
+                return 'Time: ' + numberShortener(this.x) + ' ms <br />Speed: <strong>' + numberShortener(this.y) + ' B/s</strong>';
+            }
+        },
+        series: [
+            {
+                name: 'Receiver → Sender',
+                data: json.server.speed
+            },
+            {
+                name: 'Sender → Receiver',
+                data: json.client.speed
+            }
+        ]
+    });
     $('#graph_speed').highcharts(speed_options);
 
-
-    var rtt_options = jQuery.extend(true, {}, charts_options);
-
-    rtt_options.tooltip = {
-        valueSuffix: ' ms',
-        valueDecimals: 6 // TODO pryc
-    };
-
-    var srv_cli_data = [];
-    var cli_srv_data = [];
-
-    $.each(json.server.roundtrip, function () {
-        if (this.replied == 0) return;
-        srv_cli_data.push([this.seq, this.rtt_timestamp]);
-    });
-
-    rtt_options.xAxis = {
-        title: {
-            text: 'Sequence number [B]'
-        }
-    };
-
-    rtt_options.yAxis = {
-        title: {
-            text: 'Roundtrip time [ms]'
+    // --------- Roundtrip time
+    var rtt_options = jQuery.extend(true, {}, charts_options, {
+        tooltip: {
+            formatter: function () {
+                return 'Sequence number: ' + this.x + ' B <br />RTT: <strong>' + numberShortener(this.y) + ' ms</strong>';
+            }
         },
-        labels: {
-            format: '{value:.2f}'
-        }
-    };
-
-    rtt_options.series = [
-        {
-            name: 'roundtrip server->client',
-            data: srv_cli_data
-        }
-    ];
-
+        xAxis: {
+            tickInterval: 200000,
+            title: {
+                text: 'Sequence number [B]'
+            }
+        },
+        yAxis: {
+            title: {
+                text: 'Roundtrip time [ms]'
+            },
+            labels: {
+                format: '{value:.2f}'
+            }
+        },
+        series: [
+            {
+                name: 'Receiver → Sender',
+                data: (function () {
+                    var srv_cli_data = [];
+                    $.each(json.server.roundtrip, function () {
+                        if (this.replied == 0) return;
+                        srv_cli_data.push([this.seq, this.rtt_timestamp]);
+                    });
+                    return srv_cli_data;
+                }())
+            },
+            {
+                name: 'Sender → Receiver',
+                data: (function () {
+                    var cli_srv_data = [];
+                    $.each(json.client.roundtrip, function () {
+                        if (this.replied == 0) return;
+                        cli_srv_data.push([this.seq, this.rtt_timestamp]);
+                    });
+                    return cli_srv_data;
+                }())
+            }
+        ]
+    });
     $('#graph_rtt').highcharts(rtt_options);
 
-    var rtt2_options = jQuery.extend(true, {}, rtt_options);
-
-    $.each(json.client.roundtrip, function () {
-        if (this.replied == 0) return;
-        cli_srv_data.push([this.seq, this.rtt_timestamp]);
-    });
-
-    rtt2_options.series = [
-        {
-            name: 'roundtrip client->server',
-            data: cli_srv_data
-        }
-    ];
-
-    $('#graph_rtt2').highcharts(rtt2_options);
-
-
-    var seq_options = jQuery.extend(true, {}, charts_options);
-    seq_options.series = [
-        {
-            name: 'server->client',
-            data: json.server.seq_numbers,
-            lineWidth: 0,
-            marker: {
-                enabled: true,
-                radius: 2
+    // --------- Sequence numbers
+    var seq_options = jQuery.extend(true, {}, charts_options, {
+        tooltip: {
+            formatter: function () {
+                return 'Time: ' + numberShortener(this.x) + ' ms <br />Sequence number: <strong>' + this.y + ' B</strong>';
             }
         },
+        xAxis: {
+            title: {
+                text: 'Time [ms]'
 
-        {
-            name: 'client->server',
-            data: json.client.seq_numbers,
-            lineWidth: 0,
-            marker: {
-                enabled: true,
-                radius: 2
             }
-        }
-    ];
+        },
+        yAxis: {
+            title: {
+                text: 'Sequence number [B]'
+            }
+        },
+        series: [
+            {
+                name: 'Receiver → Sender',
+                data: json.server.seq_numbers,
+                lineWidth: 0,
+                marker: {
+                    enabled: true,
+                    radius: 2
+                }
+            },
+
+            {
+                name: 'Sender → Receiver',
+                data: json.client.seq_numbers,
+                lineWidth: 0,
+                marker: {
+                    enabled: true,
+                    radius: 2
+                }
+            }
+        ]
+    });
 
 
     $('#graph_seq').highcharts(seq_options);

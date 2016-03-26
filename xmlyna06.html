@@ -19,72 +19,83 @@
     <div class="row">
         <div class="col-sm-12">
             <div class="row">
-                <div class="col-xs-4 col-sm-3">
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    Input file:
+                </div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="input_filename"></strong></div>
+            </div>
+
+            <div class="row">
+                <div class="col-xs-4 col-sm-3 col-md-2">
                     Log file:
                 </div>
-                <div class="col-xs-8 col-sm-9" id="log_filename"></div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="log_filename"></strong></div>
             </div>
 
             <div class="row">
-                <div class="col-xs-4 col-sm-3">
+                <div class="col-xs-4 col-sm-3 col-md-2">
                     Number of packets:
                 </div>
-                <div class="col-xs-8 col-sm-9" id="packets_number"></div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="packets_number"></strong></div>
             </div>
             <div class="row">
-                <div class="col-xs-4 col-sm-3">
+                <div class="col-xs-4 col-sm-3 col-md-2">
                     Initial RTT:
                 </div>
-                <div class="col-xs-8 col-sm-9" id="initial_rtt"></div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="initial_rtt"></strong></div>
             </div>
 
             <hr/>
 
             <div class="row">
-                <div class="col-sm-12">
-                    <h4>Data sent</h4>
-                </div>
-            </div>
+                <div class="col-sm-6">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <h4>Data sent</h4>
+                        </div>
+                    </div>
 
-            <div class="row">
-                <div class="col-xs-4 col-sm-3">
-                    Client:
-                </div>
-                <div class="col-xs-8 col-sm-9" id="cli_data_sent"></div>
-            </div>
+                    <div class="row">
+                        <div class="col-xs-4 col-sm-3 col-md-2">
+                            Client:
+                        </div>
+                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="cli_data_sent"></strong></div>
+                    </div>
 
-            <div class="row">
-                <div class="col-xs-4 col-sm-3">
-                    Server:
-                </div>
-                <div class="col-xs-8 col-sm-9" id="srv_data_sent"></div>
-            </div>
+                    <div class="row">
+                        <div class="col-xs-4 col-sm-3 col-md-2">
+                            Server:
+                        </div>
+                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="srv_data_sent"></strong></div>
+                    </div>
 
-            <div class="row">
-                <div class="col-xs-4 col-sm-3">
-                    Together:
+                    <div class="row">
+                        <div class="col-xs-4 col-sm-3 col-md-2">
+                            Together:
+                        </div>
+                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="all_data_sent"></strong></div>
+                    </div>
                 </div>
-                <div class="col-xs-8 col-sm-9" id="all_data_sent"></div>
-            </div>
 
-            <hr/>
-
-            <div class="row">
-                <div class="col-sm-12">
-                    <h4>Window scaling factor</h4>
+                <div class="col-sm-6">
+                    <div class="row">
+                        <div class="col-sm-12">
+                            <h4>Window scaling factor</h4>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-xs-4 col-sm-3 col-md-2">
+                            Client:
+                        </div>
+                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="cli_win_scale"></strong></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-xs-4 col-sm-3 col-md-2">
+                            Server:
+                        </div>
+                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="srv_win_scale"></strong></div>
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col-xs-4 col-sm-3">
-                    Client:
-                </div>
-                <div class="col-xs-8 col-sm-9" id="cli_win_scale"></div>
-            </div>
-            <div class="row">
-                <div class="col-xs-4 col-sm-3">
-                    Server:
-                </div>
-                <div class="col-xs-8 col-sm-9" id="srv_win_scale"></div>
             </div>
         </div>
     </div>
@@ -93,7 +104,7 @@
 
     <div class="row">
         <div class="col-sm-12">
-            <h2>Window</h2>
+            <h2>Windows size</h2>
             <div id="graph_windows"></div>
         </div>
     </div>
@@ -111,11 +122,6 @@
             <div id="graph_rtt"></div>
         </div>
     </div>
-    <div class="row">
-        <div class="col-sm-12">
-            <div id="graph_rtt2"></div>
-        </div>
-    </div>
 
     <div class="row">
         <div class="col-sm-12">
@@ -124,7 +130,6 @@
         </div>
     </div>
 
-    <hr/>
     <div class="row">
         <div class="col-sm-6">
             <h3>About</h3>
@@ -144,7 +149,7 @@
             <h3>Usage</h3>
             <p> Run script with either command:</p>
             <ul>
-                <li><em>./tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em></li>
+                <li><em>./tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em> <small>(note: executing rights must be set)</small></li>
                 <li><em>python tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em></li>
             </ul>
             <p>If <em>OUTPUT_FILE</em> not specified, default <strong>./log/log.json</strong> file is used.</p>
@@ -168,9 +173,9 @@
             <h3>Notes</h3>
             <p>
                 <strong>
-                    This file must be opened by Mozilla Firefox. <br/>
-                    <span class="text-danger">(Google Chrome prevents opening local files, so it
-                    won't open json log file)</span>
+                    <span class="text-danger">Google Chrome prevents opening local files, so it
+                    won't open log file.</span> <br />
+                    Tested browsers are Mozilla Firefox, Safari.
                 </strong>
             </p>
         </div>

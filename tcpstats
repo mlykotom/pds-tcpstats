@@ -74,6 +74,7 @@ class PcapParser:
         f = file(filename)
         # TODO check other file type than pcap
         self.pcap = dpkt.pcap.Reader(f)
+        self.output['summary']['input_filename'] = filename
 
     def get_streamer_by_ip(self, ip_address):
         """
