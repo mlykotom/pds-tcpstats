@@ -5,9 +5,34 @@
     <title>TCP Results</title>
     <link href="./presenter/css/bootstrap.min.css" rel="stylesheet"/>
 </head>
-<body>
+<body style="padding-top: 70px;">
+<nav class="navbar navbar-default navbar-fixed-top navbar-inverse">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                    aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#">TCP Statistics</a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+                <li><a href="#summary">Summary</a></li>
+                <li><a href="#window">Window size</a></li>
+                <li><a href="#speed">Transfer speed</a></li>
+                <li><a href="#rtt">Roundtrip time</a></li>
+                <li><a href="#seq">Sequence numbers</a></li>
+            </ul>
+            <p class="navbar-text navbar-right"><strong>xmlyna06</strong></p>
+        </div><!--/.nav-collapse -->
+    </div>
+</nav>
+
 <div class="container">
-    <div class="page-header">
+    <div class="page-header" id="summary">
         <h1>TCP Statistics</h1>
     </div>
     <div class="row">
@@ -17,113 +42,124 @@
     </div>
 
     <div class="row">
-        <div class="col-sm-12">
+        <div class="col-xs-4 col-sm-3 col-md-2">
+            Input file:
+        </div>
+        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="input_filename"></strong></div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-4 col-sm-3 col-md-2">
+            Log file:
+        </div>
+        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="log_filename"></strong></div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-4 col-sm-3 col-md-2">
+            Sender IP:
+        </div>
+        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="sen_ip"></strong></div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-4 col-sm-3 col-md-2">
+            Receiver IP:
+        </div>
+        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="rec_ip"></strong></div>
+    </div>
+
+    <div class="row">
+        <div class="col-xs-4 col-sm-3 col-md-2">
+            Number of packets:
+        </div>
+        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="packets_number"></strong></div>
+    </div>
+    <div class="row">
+        <div class="col-xs-4 col-sm-3 col-md-2">
+            Initial RTT:
+        </div>
+        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="initial_rtt"></strong></div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="col-sm-6">
             <div class="row">
-                <div class="col-xs-4 col-sm-3 col-md-2">
-                    Input file:
+                <div class="col-sm-12">
+                    <h4>Data sent</h4>
                 </div>
-                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="input_filename"></strong></div>
             </div>
 
             <div class="row">
                 <div class="col-xs-4 col-sm-3 col-md-2">
-                    Log file:
+                    Client:
                 </div>
-                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="log_filename"></strong></div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="cli_data_sent"></strong></div>
             </div>
 
             <div class="row">
                 <div class="col-xs-4 col-sm-3 col-md-2">
-                    Number of packets:
+                    Server:
                 </div>
-                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="packets_number"></strong></div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="srv_data_sent"></strong></div>
+            </div>
+
+            <div class="row">
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    Together:
+                </div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="all_data_sent"></strong></div>
+            </div>
+        </div>
+
+        <div class="col-sm-6">
+            <div class="row">
+                <div class="col-sm-12">
+                    <h4>Window scaling factor</h4>
+                </div>
             </div>
             <div class="row">
                 <div class="col-xs-4 col-sm-3 col-md-2">
-                    Initial RTT:
+                    Client:
                 </div>
-                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="initial_rtt"></strong></div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="cli_win_scale"></strong></div>
             </div>
-
-            <hr/>
-
             <div class="row">
-                <div class="col-sm-6">
-                    <div class="row">
-                        <div class="col-sm-12">
-                            <h4>Data sent</h4>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-xs-4 col-sm-3 col-md-2">
-                            Client:
-                        </div>
-                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="cli_data_sent"></strong></div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-xs-4 col-sm-3 col-md-2">
-                            Server:
-                        </div>
-                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="srv_data_sent"></strong></div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-xs-4 col-sm-3 col-md-2">
-                            Together:
-                        </div>
-                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="all_data_sent"></strong></div>
-                    </div>
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    Server:
                 </div>
-
-                <div class="col-sm-6">
-                    <div class="row">
-                        <div class="col-sm-12">
-                            <h4>Window scaling factor</h4>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-xs-4 col-sm-3 col-md-2">
-                            Client:
-                        </div>
-                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="cli_win_scale"></strong></div>
-                    </div>
-                    <div class="row">
-                        <div class="col-xs-4 col-sm-3 col-md-2">
-                            Server:
-                        </div>
-                        <div class="col-xs-8 col-sm-9 col-md-10"><strong id="srv_win_scale"></strong></div>
-                    </div>
-                </div>
+                <div class="col-xs-8 col-sm-9 col-md-10"><strong id="srv_win_scale"></strong></div>
             </div>
         </div>
     </div>
 
     <hr/>
 
-    <div class="row">
+    <div class="row" id="window">
         <div class="col-sm-12">
             <h2>Windows size</h2>
             <div id="graph_windows"></div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row" id="speed">
         <div class="col-sm-12">
             <h2>Transfer speed</h2>
             <div id="graph_speed"></div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row" id="rtt">
         <div class="col-sm-12">
             <h2>Roundtrip time</h2>
+            <small><em>TIP: turn off or on series because might not be seeing one way at all.</em></small>
             <div id="graph_rtt"></div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row" id="seq">
         <div class="col-sm-12">
             <h2>Sequence numbers</h2>
             <div id="graph_seq"></div>
@@ -149,7 +185,9 @@
             <h3>Usage</h3>
             <p> Run script with either command:</p>
             <ul>
-                <li><em>./tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em> <small>(note: executing rights must be set)</small></li>
+                <li><em>./tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em>
+                    <small>(note: executing rights must be set)</small>
+                </li>
                 <li><em>python tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em></li>
             </ul>
             <p>If <em>OUTPUT_FILE</em> not specified, default <strong>./log/log.json</strong> file is used.</p>
@@ -174,9 +212,12 @@
             <p>
                 <strong>
                     <span class="text-danger">Google Chrome prevents opening local files, so it
-                    won't open log file.</span> <br />
-                    Tested browsers are Mozilla Firefox, Safari.
+                    won't open log file.</span> Tested browsers are Mozilla Firefox, Safari.
                 </strong>
+            </p>
+            <p>
+                Other way to load data is to insert log into this HTML page as javascript and add to log file
+                initializing variable.
             </p>
         </div>
     </div>
@@ -186,5 +227,11 @@
 <script src="./presenter/js/highcharts.js"></script>
 <script src="./presenter/js/bootstrap.min.js"></script>
 <script src="./presenter/js/loader.js"></script>
+<script type="text/javascript">
+    var logFile = './log/log.json';
+    $.getJSON(logFile, function (json) {
+        Statistics.all(json);
+    });
+</script>
 </body>
 </html>
