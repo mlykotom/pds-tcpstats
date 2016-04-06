@@ -137,6 +137,12 @@
 
     <hr/>
 
+    <div class="row">
+        <div class="col-sm-12">
+            <small><em>TIP: Turn off or on series by clicking on its legend.</em></small>
+        </div>
+    </div>
+
     <div class="row" id="window">
         <div class="col-sm-12">
             <h2>Windows size</h2>
@@ -154,7 +160,6 @@
     <div class="row" id="rtt">
         <div class="col-sm-12">
             <h2>Roundtrip time</h2>
-            <small><em>TIP: turn off or on series because might not be seeing one way at all.</em></small>
             <div id="graph_rtt"></div>
         </div>
     </div>
@@ -174,6 +179,7 @@
                 Program parses:
             </p>
             <ul>
+                <li>Summary data</li>
                 <li>Window sizes</li>
                 <li>Transfer speed</li>
                 <li>Roundtrip time</li>
@@ -183,6 +189,17 @@
 
         <div class="col-sm-6">
             <h3>Usage</h3>
+
+            <p>
+                DPKT library is needed for running the script. <br/>
+                Install it by one of this options:
+            </p>
+            <ul>
+                <li><em>make install</em></li>
+                <li><em>sudo apt-get install python-dpkt</em></li>
+                <li><small>(might be possible to install dpkt through python PIP) <strong>[NOT TESTED]</strong></small></li>
+            </ul>
+
             <p> Run script with either command:</p>
             <ul>
                 <li><em>./tcpstats <strong>INPUT_FILE</strong> [OUTPUT_FILE]</em>
@@ -211,13 +228,9 @@
             <h3>Notes</h3>
             <ul>
                 <li>
-                    Might be needed to install DPKT library. <br/>
-                    <big><em>make install</em></big>
-                </li>
-                <li>
                     <strong>
                     <span class="text-danger">Google Chrome prevents opening local files, so it
-                    won't open log file.</span> Tested browsers are Mozilla Firefox, Safari.
+                    won't open log file.</span> Tested&nbsp;browsers are Mozilla Firefox, Safari.
                     </strong>
                 </li>
                 <li>

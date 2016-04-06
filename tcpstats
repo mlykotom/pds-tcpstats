@@ -160,7 +160,6 @@ class PcapParser:
         elif syn_flag and ack_flag:
             self.output[self.SERVER]['ref_seq'] = tcp.seq
             self.output['summary']['initial_rtt'] = (timestamp - self.output['summary']['ref_timestamp']) * 1000
-            self.output[self.CLIENT]['ref_seq'] = tcp.seq
             scale = self.get_option(tcp, dpkt.tcp.TCP_OPT_WSCALE)
             if scale is not None:
                 self.output[self.SERVER]['windows_scale'] = ord(scale)
