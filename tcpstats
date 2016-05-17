@@ -52,7 +52,7 @@ class PcapParser:
             'packets_count': 0,
             'data_sent': 0,
             'ref_timestamp': 0,
-            'initia_rtt': 0
+            'initial_rtt': 0
         },
         'server': initial_streamer_output(),
         'client': initial_streamer_output(),
@@ -100,6 +100,9 @@ class PcapParser:
                 self.append_seq_number(output, timestamp, seq, p_num)
                 p_num += 1
             except PacketTypeException as exc:
+                logger.debug(exc.message)
+                continue
+            except ParserException as exc:
                 logger.debug(exc.message)
                 continue
 
