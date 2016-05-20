@@ -23,11 +23,11 @@ var options = {
             millisecond: '%S.%L',
             second: '%H:%M:%S',
             minute: '%H:%M',
-            hour: '%H:%M',
-            day: '%e. %b',
-            week: '%e. %b',
-            month: '%b \'%y',
-            year: '%Y'
+            hour: '',
+            day: '',
+            week: '',
+            month: '',
+            year: ''
         }
     },
     yAxis: {
@@ -57,13 +57,43 @@ $.getJSON('log.json', function (json) {
     options.series = [
         {
             name: 'sender window',
-            data: json.windows.sender
+            data: json.windows.sender.data
         },
         {
             name: 'receiver window',
-            data: json.windows.receiver
+            data: json.windows.receiver.data
         }
     ];
 
-    $('#container').highcharts(options);
+    $('#graph_windows').highcharts(options);
+
+    rtt_options = jQuery.extend(true, {}, options);
+
+    var srv_cli = [];
+    var srv_cli_data = [];
+    $.each(json.roundtrip.server_client, function () {
+        srv_cli.push(this.seq);
+        srv_cli_data.push(this.time);
+    });
+
+    var cli_srv = [];
+    var cli_srv_data = [];
+    $.each(json.roundtrip.client_server, function () {
+        cli_srv.push(this.seq);
+        cli_srv_data.push(this.time);
+    });
+
+
+    rtt_options.xAxis = {
+        categories: srv_cli
+    };
+
+    rtt_options.series = [
+        {
+            name: 'roundtrip client->server',
+            data: srv_cli_data
+        }
+    ];
+
+    $('#graph_rtt').highcharts(rtt_options);
 });
