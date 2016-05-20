@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TCP Results</title>
+    <link href="./presenter/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="./presenter/css/style.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="container">
+    <div class="page-header">
+        <h1>Results of TCP stream</h1>
+    </div>
+    <div class="row">
+        <div class="col-sm-12">
+            <h2>Window</h2>
+            <div id="graph_windows"></div>
+        </div>
+    </div>
+
+        <div class="row">
+        <div class="col-sm-12">
+            <h2>Transfer speed</h2>
+            <div id="graph_speed"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-12">
+            <h2>Roundtrip time</h2>
+            <div id="graph_rtt"></div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-sm-12">
+            <h2>Roundtrip time2</h2>
+            <div id="graph_rtt2"></div>
+        </div>
+    </div>
+</div>
+
+<script src="./presenter/js/jquery-2.2.1.min.js"></script>
+<script src="./presenter/js/highcharts.js"></script>
+<script src="./presenter/js/bootstrap.min.js"></script>
+<script src="./presenter/js/loader.js"></script>
+</body>
+</html>

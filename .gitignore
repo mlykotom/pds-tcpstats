@@ -43,6 +43,6 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-/presenter/log.json
+/log/log.json
 /inputs/*
 *.cap

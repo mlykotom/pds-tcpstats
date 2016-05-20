@@ -49,7 +49,7 @@ var options = {
 };
 
 
-$.getJSON('log.json', function (json) {
+$.getJSON('./log/log.json', function (json) {
     options.tooltip = {
         valueSuffix: ' B'
     };
@@ -57,32 +57,37 @@ $.getJSON('log.json', function (json) {
     options.series = [
         {
             name: 'sender window',
-            data: json.windows.sender.data
+            data: json.windows.client.data
         },
         {
             name: 'receiver window',
-            data: json.windows.receiver.data
+            data: json.windows.server.data
         }
     ];
 
     $('#graph_windows').highcharts(options);
 
-    rtt_options = jQuery.extend(true, {}, options);
+    var speed_options = jQuery.extend(true, {}, options);
+    speed_options.series = [
+        {
+            name: 'server->client',
+            data: json.server.speed
+        }
+    ];
 
+    $('#graph_speed').highcharts(speed_options);
+
+
+
+    var rtt_options = jQuery.extend(true, {}, options);
     var srv_cli = [];
     var srv_cli_data = [];
     $.each(json.roundtrip.server_client, function () {
+        if (this.replied == 0) return;
+
         srv_cli.push(this.seq);
         srv_cli_data.push(this.time);
     });
-
-    var cli_srv = [];
-    var cli_srv_data = [];
-    $.each(json.roundtrip.client_server, function () {
-        cli_srv.push(this.seq);
-        cli_srv_data.push(this.time);
-    });
-
 
     rtt_options.xAxis = {
         categories: srv_cli
@@ -90,10 +95,34 @@ $.getJSON('log.json', function (json) {
 
     rtt_options.series = [
         {
-            name: 'roundtrip client->server',
+            name: 'roundtrip server->client',
             data: srv_cli_data
         }
     ];
 
     $('#graph_rtt').highcharts(rtt_options);
+
+    var rtt2_options = jQuery.extend(true, {}, rtt_options);
+    var cli_srv = [];
+    var cli_srv_data = [];
+    $.each(json.roundtrip.client_server, function () {
+        if (this.replied == 0) return;
+
+        cli_srv.push(this.seq);
+        cli_srv_data.push(this.time);
+    });
+
+    rtt2_options.xAxis = {
+        categories: cli_srv
+    };
+
+    rtt2_options.series = [
+        {
+            name: 'roundtrip client->server',
+            data: cli_srv_data
+        }
+    ];
+
+
+    $('#graph_rtt2').highcharts(rtt2_options);
 });
