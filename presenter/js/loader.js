@@ -2,13 +2,26 @@
  * @author Tomas Mlynaric
  */
 
-var options = {
+function numberShortener(input, decimals) {
+    return parseFloat(input).toFixed(decimals || 2);
+}
+
+var logFile = './log/log.json';
+
+var charts_options = {
     global: {
         useUTC: false
     },
 
     title: {
         text: ''
+    },
+
+    legend: {
+        layout: 'horizontal',
+        align: 'right',
+        verticalAlign: 'top',
+        borderWidth: 0
     },
 
     xAxis: {
@@ -30,32 +43,31 @@ var options = {
             month: '',
             year: ''
         }
-    },
-    yAxis: {
-        //title: {
-        //    text: 'Temperature (°C)'
-        //},
-        plotLines: [{
-            value: 0,
-            width: 1,
-            color: '#808080'
-        }]
-    },
-    legend: {
-        layout: 'vertical',
-        align: 'right',
-        verticalAlign: 'middle',
-        borderWidth: 0
     }
 };
 
+$.getJSON(logFile, function (json) {
+    $('#log_filename').html(logFile);
+    $('#packets_number').html(json.summary.packets_count);
+    $('#initial_rtt').html(numberShortener(json.summary.initial_rtt) + ' ms');
+    // data sent
+    var kb_cli_sent = json.client.data_sent / 1024;
+    var kb_srv_sent = json.server.data_sent / 1024;
+    $('#cli_data_sent').html(numberShortener(kb_cli_sent) + ' kB');
+    $('#srv_data_sent').html(numberShortener(kb_srv_sent) + ' kB');
+    $('#all_data_sent').html(numberShortener(kb_cli_sent + kb_srv_sent) + ' kB');
+    // window scaling factor
+    $('#cli_win_scale').html(json.client.windows_scale + ' (' + Math.pow(2, json.client.windows_scale) + ')');
+    $('#srv_win_scale').html(json.server.windows_scale + ' (' + Math.pow(2, json.server.windows_scale) + ')');
 
-$.getJSON('./log/log.json', function (json) {
-    options.tooltip = {
+
+    var window_options = jQuery.extend(true, {}, charts_options);
+
+    window_options.tooltip = {
         valueSuffix: ' B'
     };
 
-    options.series = [
+    window_options.series = [
         {
             name: 'sender window',
             data: json.client.windows
@@ -66,9 +78,20 @@ $.getJSON('./log/log.json', function (json) {
         }
     ];
 
-    $('#graph_windows').highcharts(options);
+    window_options.xAxis = {
+        title: {
+            text: 'Time [ms]'
+        }
+    };
+    window_options.yAxis = {
+        title: {
+            text: 'Window Size [B]'
+        }
+    };
 
-    var speed_options = jQuery.extend(true, {}, options);
+    $('#graph_windows').highcharts(window_options);
+
+    var speed_options = jQuery.extend(true, {}, charts_options);
     speed_options.series = [
         {
             name: 'server->client',
@@ -83,24 +106,25 @@ $.getJSON('./log/log.json', function (json) {
     $('#graph_speed').highcharts(speed_options);
 
 
-    var rtt_options = jQuery.extend(true, {}, options);
+    var rtt_options = jQuery.extend(true, {}, charts_options);
 
     rtt_options.tooltip = {
         valueSuffix: ' ms',
         valueDecimals: 6 // TODO pryc
     };
 
-    var srv_cli = [];
     var srv_cli_data = [];
+    var cli_srv_data = [];
+
     $.each(json.server.roundtrip, function () {
         if (this.replied == 0) return;
-
-        srv_cli.push(this.seq);
-        srv_cli_data.push(this.time);
+        srv_cli_data.push([this.seq, this.rtt_timestamp]);
     });
 
     rtt_options.xAxis = {
-        categories: srv_cli
+        title: {
+            text: 'Sequence number [B]'
+        }
     };
 
     rtt_options.yAxis = {
@@ -122,18 +146,11 @@ $.getJSON('./log/log.json', function (json) {
     $('#graph_rtt').highcharts(rtt_options);
 
     var rtt2_options = jQuery.extend(true, {}, rtt_options);
-    var cli_srv = [];
-    var cli_srv_data = [];
+
     $.each(json.client.roundtrip, function () {
         if (this.replied == 0) return;
-
-        cli_srv.push(this.seq);
-        cli_srv_data.push(this.time);
+        cli_srv_data.push([this.seq, this.rtt_timestamp]);
     });
-
-    rtt2_options.xAxis = {
-        categories: cli_srv
-    };
 
     rtt2_options.series = [
         {
@@ -145,11 +162,26 @@ $.getJSON('./log/log.json', function (json) {
     $('#graph_rtt2').highcharts(rtt2_options);
 
 
-    var seq_options = jQuery.extend(true, {}, options);
+    var seq_options = jQuery.extend(true, {}, charts_options);
     seq_options.series = [
         {
             name: 'server->client',
-            data: json.server.speed
+            data: json.server.seq_numbers,
+            lineWidth: 0,
+            marker: {
+                enabled: true,
+                radius: 2
+            }
+        },
+
+        {
+            name: 'client->server',
+            data: json.client.seq_numbers,
+            lineWidth: 0,
+            marker: {
+                enabled: true,
+                radius: 2
+            }
         }
     ];
 

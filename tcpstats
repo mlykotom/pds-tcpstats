@@ -26,14 +26,14 @@ class PacketTypeException(ParserException):
 
 def initial_streamer_output():
     return {
-        'mss': 0,
         'ref_seq': 0,
         'speed': [],
+        'data_sent': 0,
         'windows_scale': 0,
         'windows': [],
         'roundtrip': {},
         'expecting_acks': [],
-        'seq_numbers': []
+        'seq_numbers': [],
     }
 
 
@@ -43,22 +43,36 @@ class PcapParser:
 
     HANDSHAKE_LEN = 3
 
-    data_sent = {
-        'client': 0,
-        'server': 0
-    }
-
     client_ip = None
     server_ip = None
 
+    tmp = {
+        SERVER: {
+            'expecting_acks': []
+        },
+        CLIENT: {
+            'expecting_acks': []
+        }
+    }
+
     output = {
-        'ref_timestamp': 0,
+        'summary': {
+            'packets_count': 0,
+            'data_sent': 0,
+            'ref_timestamp': 0,
+            'initia_rtt': 0
+        },
         'server': initial_streamer_output(),
         'client': initial_streamer_output(),
     }
 
     def __init__(self, filename):
+        """
+        Opens file specified by parameter and tries to read it as pcap file
+        :param filename:
+        """
         f = file(filename)
+        # TODO check other file type than pcap
         self.pcap = dpkt.pcap.Reader(f)
 
     def get_streamer_by_ip(self, ip_address):
@@ -95,115 +109,27 @@ class PcapParser:
         if syn_flag and not ack_flag:
             self.client_ip = ip.src
             self.server_ip = ip.dst
-            self.output['ref_timestamp'] = timestamp
-            self.output['client']['ref_seq'] = tcp.seq
-
-            opts = dpkt.tcp.parse_opts(tcp.opts)
-            self.output['client']['windows_scale'] = ord(self.get_option(opts, dpkt.tcp.TCP_OPT_WSCALE))
-            # self.output['client']['speed'].append([0, 0])
+            self.output['summary']['ref_timestamp'] = timestamp
+            self.output[self.CLIENT]['ref_seq'] = tcp.seq
+            self.output[self.CLIENT]['windows_scale'] = ord(self.get_option(tcp, dpkt.tcp.TCP_OPT_WSCALE))
         # second packet (handshake way <-)
         elif syn_flag and ack_flag:
-            self.output['server']['ref_seq'] = tcp.seq
-            # self.output['mss'] = struct.unpack(">H", self.get_option(opts, dpkt.tcp.TCP_OPT_MSS))[0]
-            opts = dpkt.tcp.parse_opts(tcp.opts)
-            self.output['server']['windows_scale'] = ord(self.get_option(opts, dpkt.tcp.TCP_OPT_WSCALE))
-            # self.output['server']['speed'].append([0, 0])
+            self.output[self.SERVER]['ref_seq'] = tcp.seq
+            self.output['summary']['initial_rtt'] = (timestamp - self.output['summary']['ref_timestamp']) * 1000
+            self.output[self.SERVER]['windows_scale'] = ord(self.get_option(tcp, dpkt.tcp.TCP_OPT_WSCALE))
         # third packet (handshake way ->)
         elif not syn_flag and ack_flag:
             pass
 
-    def parse(self):
-        p_num = 1  # indexing from 1 because wireshark does that
-        for timestamp_raw, buf in self.pcap:
-            try:
-                tcp, ip, eth, syn_flag, ack_flag = PcapParser.get_tcp_packet(buf)
-                if p_num <= self.HANDSHAKE_LEN:
-                    self.set_initial(timestamp_raw, tcp, ip, syn_flag, ack_flag)
-                    # p_num += 1 # TODO should skip?
-                    # continue
-
-                timestamp = (timestamp_raw - self.output['ref_timestamp']) * 1000
-                streamer = self.get_streamer_by_ip(ip.src)
-                # --- window
-                self.append_window_size(streamer, timestamp, tcp.win, p_num)
-                # --- speed
-                self.append_transfer_speed(streamer, timestamp, buf)
-                # --- roundtrip
-                self.analyse_rtt(p_num, streamer, timestamp, tcp, ack_flag)
-
-                # if p_num > 65: break
-                p_num += 1
-            except PacketTypeException as exc:
-                logger.debug(exc.message)
-                continue
-
-    def analyse_rtt(self, p_num, streamer, timestamp, tcp, ack_flag):
-        """
-        Analyses roundtrip time
-        :param p_num:
-        :param streamer:
-        :param timestamp:
-        :param tcp:
-        :param ack_flag:
-        """
-        if streamer == self.SERVER:
-            seq = tcp.seq - self.output['server']['ref_seq']
-            ack = tcp.ack - self.output['client']['ref_seq']
-        else:
-            seq = tcp.seq - self.output['client']['ref_seq']
-            ack = tcp.ack - self.output['server']['ref_seq']
-
-        if len(self.output[streamer]['expecting_acks']) > 0:
-            prev_packet_expecting = self.output[streamer]['expecting_acks'][-1]
-        else:
-            prev_packet_expecting = -1
-
-        size = len(tcp.data)
-        expecting_ack = size + seq
-        if size > 0:
-            # TODO check if do different way (size = 0 -> its only ACK, we dont capture packet)
-            self.output[streamer]['roundtrip'][expecting_ack] = {
-                'p_num': p_num,
-                'seq': seq,
-                'ack': ack,
-                'expecting_ack': expecting_ack,
-                'time': timestamp,
-                'replied': False,
-                'prev_expecting': prev_packet_expecting
-            }
-
-        if seq not in self.output[streamer]['seq_numbers']:
-            self.output[streamer]['seq_numbers'].append(seq)
-
-        if expecting_ack not in self.output[streamer]['expecting_acks']:
-            self.output[streamer]['expecting_acks'].append(expecting_ack)
-
-        # confirmation (rtt)
-        if ack_flag:
-            streamer_opo = self.get_streamer_opo(streamer)
-            self.cumulative_ack(streamer_opo, ack, timestamp)
-
-    def cumulative_ack(self, streamer_opo, ack, timestamp):
-        """
-        Cumulatively acknowledges packet and it's precedes
-        :param streamer_opo:
-        :param ack:
-        :param timestamp:
-        """
-        if ack not in self.output[streamer_opo]['roundtrip']:
-            return
-
-        packet = self.output[streamer_opo]['roundtrip'][ack]
-        if packet['replied']:
-            return
-
-        packet['replied'] = True
-        packet['time'] = timestamp - packet['time']
-        # TODO should check if SEQ is lower or sth like that
-        self.cumulative_ack(streamer_opo, packet['prev_expecting'], timestamp)
-
     @staticmethod
-    def get_option(options, opt_type):
+    def get_option(tcp, opt_type):
+        """
+        Returns TCP option from packet
+        :param tcp:
+        :param opt_type: needle to search
+        :return:
+        """
+        options = dpkt.tcp.parse_opts(tcp.opts)
         for option in options:
             if option[0] == opt_type:
                 return option[1]
@@ -229,49 +155,161 @@ class PcapParser:
         ack_flag = (tcp.flags & dpkt.tcp.TH_ACK) != 0
         return tcp, ip, eth, syn_flag, ack_flag
 
-    @staticmethod
-    def get_time(timestamp):
-        return str(datetime.datetime.utcfromtimestamp(timestamp))
+    def parse(self):
+        p_num = 1  # indexing from 1 because wireshark does that
+        for timestamp_raw, buf in self.pcap:
+            try:
+                tcp, ip, eth, syn_flag, ack_flag = PcapParser.get_tcp_packet(buf)
+                if p_num <= self.HANDSHAKE_LEN:
+                    self.set_initial(timestamp_raw, tcp, ip, syn_flag, ack_flag)
 
-    def append_window_size(self, streamer, timestamp, win, packet_number):
+                timestamp = (timestamp_raw - self.output['summary']['ref_timestamp']) * 1000
+                streamer = self.get_streamer_by_ip(ip.src)
+                if streamer == self.SERVER:
+                    output = self.output[self.SERVER]
+                    seq = tcp.seq - output['ref_seq']
+                    ack = tcp.ack - self.output[self.CLIENT]['ref_seq']
+                else:
+                    output = self.output[self.CLIENT]
+                    seq = tcp.seq - output['ref_seq']
+                    ack = tcp.ack - self.output[self.SERVER]['ref_seq']
+
+                # --- window
+                self.append_window_size(output, timestamp, tcp.win, p_num)
+                # --- speed
+                self.append_transfer_speed(output, timestamp, buf)
+                # --- roundtrip
+                self.analyse_rtt(p_num, output, streamer, timestamp, tcp, seq, ack, ack_flag)
+                # --- sequence numbers
+                self.append_seq_number(output, timestamp, seq)
+                p_num += 1
+            except PacketTypeException as exc:
+                logger.debug(exc.message)
+                continue
+        # --- summary information
+        self.output['summary']['packets_count'] = p_num - 1
+        # self.output['summary']['data_sent']
+
+    @staticmethod
+    def append_window_size(output, timestamp, win, packet_number):
         """
         Appends to log window
-        :param streamer:
+        :param output:
         :param timestamp:
         :param win:
         """
-        streamer = self.output[streamer]
-        if packet_number <= self.HANDSHAKE_LEN:
+        if packet_number <= PcapParser.HANDSHAKE_LEN:
             scale = 0
         else:
-            scale = streamer['windows_scale']
+            scale = output['windows_scale']
 
-        streamer['windows'].append([timestamp, win << scale])
+        output['windows'].append([timestamp, win << scale])
 
-    def append_transfer_speed(self, streamer, timestamp, buf):
+    @staticmethod
+    def append_transfer_speed(output, timestamp, buf):
         """
         Appends to log data transfer speed (transfered data / time)
-        :param streamer:
+        :param output:
         :param timestamp:
         :param buf:
         """
-        self.data_sent[streamer] += len(buf)
+        output['data_sent'] += len(buf)
         if timestamp > 0:
-            self.output[streamer]['speed'].append([timestamp, self.data_sent[streamer] / timestamp])
+            output['speed'].append([timestamp, output['data_sent'] / timestamp])
         else:
-            self.output[streamer]['speed'].append([0, 0])
+            output['speed'].append([0, 0])
+
+    def analyse_rtt(self, p_num, output, streamer, timestamp, tcp, seq, ack, ack_flag):
+        """
+        Analyses roundtrip time
+        :param ack:
+        :param seq:
+        :param p_num:
+        :param streamer:
+        :param timestamp:
+        :param tcp:
+        :param ack_flag:
+        """
+        if len(self.tmp[streamer]['expecting_acks']) > 0:
+            prev_packet_expecting = self.tmp[streamer]['expecting_acks'][-1]
+        else:
+            prev_packet_expecting = -1
+
+        size = len(tcp.data)
+        expecting_ack = size + seq
+
+        if size > 0:
+            # TODO check if do different way (size = 0 -> its only ACK, we dont capture packet)
+            output['roundtrip'][expecting_ack] = {
+                'p_num': p_num,
+                'seq': seq,
+                'ack': ack,
+                'expecting_ack': expecting_ack,
+                'timestamp': timestamp,
+                'rtt_timestamp': timestamp,
+                'replied': False,
+                'prev_expecting': prev_packet_expecting
+            }
+
+        if expecting_ack not in self.tmp[streamer]['expecting_acks']:
+            self.tmp[streamer]['expecting_acks'].append(expecting_ack)
+
+        # confirmation (rtt)
+        if ack_flag:
+            streamer_opo = self.get_streamer_opo(streamer)
+            self.cumulative_ack(streamer_opo, ack, timestamp)
+
+    def cumulative_ack(self, streamer_opo, ack, timestamp):
+        """
+        Cumulatively acknowledges packet and it's precedes
+        :param streamer_opo:
+        :param ack:
+        :param timestamp:
+        """
+        if ack not in self.output[streamer_opo]['roundtrip']:
+            return
+
+        packet = self.output[streamer_opo]['roundtrip'][ack]
+        if packet['replied']:
+            return
+
+        packet['replied'] = True
+        packet['rtt_timestamp'] = timestamp - packet['rtt_timestamp']
+        # TODO should check if SEQ is lower or sth like that
+        self.cumulative_ack(streamer_opo, packet['prev_expecting'], timestamp)
+
+    @staticmethod
+    def append_seq_number(output, timestamp, seq):
+        """
+        Appends to log sequence numbers with timestamp
+        :param output:
+        :param timestamp:
+        :param seq:
+        """
+        output['seq_numbers'].append([timestamp, seq])
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    arg_len = len(sys.argv)
+    if arg_len < 2:
         print "You need to specify input pcap file!"
+        exit()
+
+    # input file is always program argument
+    input_file = sys.argv[1]
+    # might specify output file
+    if arg_len > 2:
+        output_file = sys.argv[2]
+    else:
+        output_file = "./log/log.json"
 
     try:
-        parser = PcapParser(sys.argv[1])
+        parser = PcapParser(input_file)
         parser.parse()
 
-        with open("./log/log.json", 'w') as outfile:
+        with open(output_file, 'w') as outfile:
             json.dump(parser.output, outfile)
 
+        print 'Statistics were written to ' + output_file
     except IOError as e:
         print e.strerror
