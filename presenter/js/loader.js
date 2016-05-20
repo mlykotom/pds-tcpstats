@@ -73,7 +73,8 @@ var Statistics = {
                     marker: {
                         enabled: true,
                         radius: 2
-                    }
+                    },
+                    turboThreshold: 0
                 },
                 {
                     name: 'Receiver',
@@ -82,7 +83,8 @@ var Statistics = {
                     marker: {
                         enabled: true,
                         radius: 2
-                    }
+                    },
+                    turboThreshold: 0
                 }
             ]
         });
@@ -114,11 +116,13 @@ var Statistics = {
             series: [
                 {
                     name: 'Sender → Receiver',
-                    data: json.client.speed
+                    data: json.client.speed,
+                    turboThreshold: 0
                 },
                 {
                     name: 'Receiver → Sender',
-                    data: json.server.speed
+                    data: json.server.speed,
+                    turboThreshold: 0
                 }
             ]
         });
@@ -158,7 +162,8 @@ var Statistics = {
                             cli_srv_data.push({x: this.seq, y: this.rtt_timestamp, i: this.p_num});
                         });
                         return cli_srv_data;
-                    }())
+                    }()),
+                    turboThreshold: 0
                 },
                 {
                     name: 'Receiver → Sender',
@@ -169,7 +174,8 @@ var Statistics = {
                             srv_cli_data.push({x: this.seq, y: this.rtt_timestamp, i: this.p_num});
                         });
                         return srv_cli_data;
-                    }())
+                    }()),
+                    turboThreshold: 0
                 }
             ]
         });
@@ -204,7 +210,8 @@ var Statistics = {
                     marker: {
                         enabled: true,
                         radius: 2
-                    }
+                    },
+                    turboThreshold: 0
                 },
                 {
                     name: 'Receiver → Sender',
@@ -213,7 +220,8 @@ var Statistics = {
                     marker: {
                         enabled: true,
                         radius: 2
-                    }
+                    },
+                    turboThreshold: 0
                 }
             ]
         });
