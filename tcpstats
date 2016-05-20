@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+import struct
+
 import datetime
 import sys
 import dpkt
@@ -15,38 +17,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-class Packet(JSONEncoder):
-    timestamp = None
-    host = None
-    window = None
-
-    def default(self, o):
-        return o.__dict__
-
-    def __init__(self, timestamp, ip_bytes):
-        super(Packet, self).__init__()
-        self.timestamp = timestamp
-        self.host = socket.inet_ntoa(ip_bytes)
-
-
-class Streamer:
-    CLIENT = "client"
-    SERVER = "server"
-
-    type = None
-    ip_addr = None
-    ip_byte = None
-    window = {
-        'data': [],
-        'time': []
-    }
-
-    def __init__(self, type, ip_bytes):
-        self.type = type
-        self.ip_addr = socket.inet_ntoa(ip_bytes)
-        self.ip_byte = ip_bytes
-
-
 class ParserException(Exception):
     pass
 
@@ -56,29 +26,103 @@ class PacketTypeException(ParserException):
 
 
 class PcapParser:
-    packets = None
-    client = None
-    server = None
-    output = []
+    timestamp_ref = 0
+    seq_ref = 0
 
-    srv = {
-        'windows': []
-    }
+    client_ip = None
+    server_ip = None
 
-    cli = {
-        'windows': []
+    output = {
+        'roundtrip': {
+            'client_server': [],
+            'server_client': []
+        },
+
+        'mss': None,
+
+        'windows': {
+            'receiver': [],
+            'receiver_scale': 0,
+            'sender': [],
+        }
     }
 
     def __init__(self, filename):
         f = file(filename)
-        self.packets = self.filter_tcp(dpkt.pcap.Reader(f))
+        self.pcap = dpkt.pcap.Reader(f)
 
-        if len(self.packets) > 1:
-            packet_ip = self.packets[0][2]
-            self.client = Streamer(Streamer.CLIENT, packet_ip.src)
-            self.server = Streamer(Streamer.SERVER, packet_ip.dst)
+    def get_streamer_by_ip(self, ip_addr):
+        if ip_addr == self.server_ip:
+            return 'server'
+        elif ip_addr == self.client_ip:
+            return 'client'
         else:
-            logger.error("No input packets")
+            raise ParserException("Unknown IP Address")
+
+    def set_initial_data(self, timestamp, tcp, ip):
+        self.client_ip = ip.src
+        self.server_ip = ip.dst
+        self.timestamp_ref = timestamp
+        self.seq_ref = tcp.seq
+        pass
+
+    def parse(self):
+        ack_counter = 0
+        mss = 0
+        ts_start = 0
+        ts_back = 0
+        ts_end = 0
+        for timestamp, buf in self.pcap:
+            try:
+                tcp, ip, eth = PcapParser.get_tcp_packet(buf)
+                # print socket.inet_ntoa(self.server['ip']), tcp.win
+                syn_flag = (tcp.flags & dpkt.tcp.TH_SYN) != 0
+                ack_flag = (tcp.flags & dpkt.tcp.TH_ACK) != 0
+
+                # first packet (handshake way ->)
+                if syn_flag and not ack_flag:
+                    self.set_initial_data(timestamp, tcp, ip)
+                # second packet (handshake way <-)
+                elif syn_flag and ack_flag:
+                    opts = dpkt.tcp.parse_opts(tcp.opts)
+                    self.output['mss'] = struct.unpack(">H", self.get_option(opts, dpkt.tcp.TCP_OPT_MSS))[0]
+                    self.output['receiver_scale'] = ord(self.get_option(opts, dpkt.tcp.TCP_OPT_WSCALE))
+
+                rel_timestamp = (timestamp - self.timestamp_ref) * 1000
+                rel_seq = tcp.seq - self.seq_ref
+
+                if self.get_streamer_by_ip(ip.src) == 'server':
+                    # receiver window
+                    if not (syn_flag and ack_flag):
+                        window = tcp.win << self.output['receiver_scale']
+                    else:
+                        window = tcp.win
+
+                    self.output['windows']['receiver'].append([rel_timestamp, window])
+
+                    if ack_flag:
+                        ack_counter += 1
+                        mss = self.output['mss'] * ack_counter  # there was +=
+                        # sender window
+                        self.output['windows']['sender'].append([rel_timestamp, mss])
+                else:
+                    # print rel_seq, rel_timestamp, ack_flag
+
+                    pass
+
+            except PacketTypeException as e:
+                logger.debug(e.message)
+                continue
+
+    @staticmethod
+    def get_option(options, type):
+        for option in options:
+            if option[0] == type:
+                # The MSS is a 16 bit number   dpkt decodes it as a 16
+                # bit number.  An MSS is never going to be bigger than 65496 bytes.
+                # The most common value is 1460 bytes (IPv4) which 0x05b4 or 1440 bytes (IPv6) which is 0x05a0.  The format string ">H" means
+                # big-endian unsigned 16 bit number.  It should be ">L" which is big-endian 32 bit number.
+                return option[1]
 
     @staticmethod
     def get_tcp_packet(buf):
@@ -101,97 +145,25 @@ class PcapParser:
     def get_time(timestamp):
         return str(datetime.datetime.utcfromtimestamp(timestamp))
 
-    @staticmethod
-    def filter_tcp(pcap):
-        """
-        Filters input PCAP so that there are only TCP packets
-        :param pcap:
-        :return: returns list of (timestamp, tcp data)
-        """
-        packets = []
-        for timestamp, buf in pcap:
-            try:
-                tcp, ip, eth = PcapParser.get_tcp_packet(buf)
-                p = (timestamp, tcp, ip, eth)
-                packets.append(p)
-            except PacketTypeException as e:
-                logger.debug(e.message)
-                continue
-        return packets
-
-    def parse_rtt(self):
-        ts_start = ts_back = ts_end = 0
-        for timestamp, tcp, ip, eth in self.packets:
-            syn_flag = (tcp.flags & dpkt.tcp.TH_SYN) != 0
-            ack_flag = (tcp.flags & dpkt.tcp.TH_ACK) != 0
-
-            # from server (2nd way)
-            if syn_flag and ack_flag:
-                ts_back = timestamp
-            # from client (1nd way)
-            elif syn_flag:
-                ts_start = timestamp
-            # from server (3nd way)
-            elif ack_flag:
-                ts_end = timestamp
-
-            if ts_start and ts_back and ts_end: break
-        rtt = ts_back + ts_end - 2 * ts_start
-        return rtt
-
-    def get_streamer_by_ip(self, ip):
-        if ip == self.client.ip_byte:
-            return self.client
-        elif ip == self.server.ip_byte:
-            return self.server
-        else:
-            raise ParserException("Unknown IP Address")
-
-    def parse_all(self):
-        for timestamp, tcp, ip, eth in self.packets:
-            streamer = self.get_streamer_by_ip(ip.src)
-            if streamer.type == Streamer.SERVER:
-                window = self.server.window['data']
-            else:
-                window = self.client.window['data']
-
-            window.append(tcp.win)
-
-    def parse(self):
-        ref_timestamp = None
-
-        for timestamp, tcp, ip, eth in self.packets:
-            if socket.inet_ntoa(ip.src) != '128.119.245.12':
-                continue
-            # streamer = self.get_streamer_by_ip(ip.src)
-            # if streamer == Streamer.SERVER:
-            if len(self.srv['windows']) == 0 or self.srv['windows'][-1][1] != tcp.win:
-                self.srv['windows'].append([timestamp, tcp.win])
-
-
-            print self.srv['windows'][-1]
-            # elif streamer == Streamer.CLIENT:
-            #     pass
-
-
-                # if ref_timestamp is None:
-                #     ref_timestamp = 0
-                #
-                # streamer = self.get_streamer_by_ip(ip.src)
-                # # if streamer.type == Streamer.CLIENT:
-                # #     self.client_windows.append([timestamp - ref_timestamp, tcp.win])
-                # # else:
-                #
-                # if index == 0 or (index > 0 and self.server_windows[-1][1] != tcp.win):
-                #     if streamer.type == Streamer.SERVER:
-                #         self.server_windows.append([timestamp - ref_timestamp, tcp.win])
-                #
-                # # if streamer.type == 'server':
-                # #     print streamer.type, self.get_time(timestamp), tcp.win
-                #
-                #
-                #
-        pass
+        # def parse_rtt(self):
+        #     ts_start = ts_back = ts_end = 0
+        #     for timestamp, tcp, ip, eth in self.packets:
+        #         syn_flag = (tcp.flags & dpkt.tcp.TH_SYN) != 0
+        #         ack_flag = (tcp.flags & dpkt.tcp.TH_ACK) != 0
+        #
+        #         # from server (2nd way)
+        #         if syn_flag and ack_flag:
+        #             ts_back = timestamp
+        #         # from client (1nd way)
+        #         elif syn_flag:
+        #             ts_start = timestamp
+        #         # from server (3nd way)
+        #         elif ack_flag:
+        #             ts_end = timestamp
+        #
+        #         if ts_start and ts_back and ts_end: break
+        #     rtt = ts_back + ts_end - 2 * ts_start
+        #     return rtt
 
 
 if __name__ == "__main__":
@@ -202,12 +174,13 @@ if __name__ == "__main__":
         parser = PcapParser(sys.argv[1])
         parser.parse()
 
-        output = {
-            'server': parser.srv
-        }
+        # output = {
+        #     'client': parser.client,
+        #     'server': parser.server
+        # }
 
         with open("./presenter/log.json", 'w') as outfile:
-            json.dump(output, outfile)
+            json.dump(parser.output, outfile)
 
     except IOError as e:
         print e.strerror

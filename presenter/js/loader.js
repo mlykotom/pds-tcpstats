@@ -3,16 +3,32 @@
  */
 
 var options = {
-    title: {
-        text: '',
+    global: {
+        useUTC: false
     },
+
+    title: {
+        text: ''
+    },
+
     xAxis: {
         type: 'datetime',
         units: [
             [
-                'millisecond'
+                'millisecond',
+                [1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
             ]
-        ]
+        ],
+        dateTimeLabelFormats: {
+            millisecond: '%S.%L',
+            second: '%H:%M:%S',
+            minute: '%H:%M',
+            hour: '%H:%M',
+            day: '%e. %b',
+            week: '%e. %b',
+            month: '%b \'%y',
+            year: '%Y'
+        }
     },
     yAxis: {
         //title: {
@@ -24,46 +40,30 @@ var options = {
             color: '#808080'
         }]
     },
-    //tooltip: {
-    //    valueSuffix: '°C'
-    //},
     legend: {
         layout: 'vertical',
         align: 'right',
         verticalAlign: 'middle',
         borderWidth: 0
-    },
+    }
 };
 
 
 $.getJSON('log.json', function (json) {
+    options.tooltip = {
+        valueSuffix: ' B'
+    };
+
     options.series = [
         {
-            name: 'Server window',
-            data: json.server.windows
+            name: 'sender window',
+            data: json.windows.sender
         },
-        //{
-        //    name: 'Client window',
-        //    data: json.client.window
-        //}
-    ]
+        {
+            name: 'receiver window',
+            data: json.windows.receiver
+        }
+    ];
 
     $('#container').highcharts(options);
 });
-
-//data: [
-//    //[Date.UTC(2010, 0, 1,11,11,12, 1), 29.9],
-//    //[Date.UTC(2010, 0, 1,11,11,12, 12), 71.5],
-//    //[Date.UTC(2010, 0, 1,11,11,12, 13), 106.4],
-//    //[Date.UTC(2010, 0, 1,11,11,12, 14), 129.2],
-//    //[Date.UTC(2010, 0, 1,11,11,12, 15), 144.0],
-//
-//    [1110033190.9, 50],
-//    [1110033190.9, 51],
-//    [1110033190.9, 52],
-//    [1110033191.07, 53],
-//    [1110033191.15, 54],
-//    [1110033191.23, 55],
-//    [1110033191.26, 56],
-//    [1110033191.26, 57],
-//]
